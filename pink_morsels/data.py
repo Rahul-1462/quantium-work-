@@ -21,7 +21,9 @@ def daily_sales_by_region(df: pd.DataFrame, region: str = 'all') -> pd.DataFrame
     """
     if region and region.lower() != 'all':
         if 'Region' in df.columns:
-            mask = df.get('Region') is not None and df['Region'].str.lower() == region.lower()
+            # build a clear pandas boolean mask; handle NaNs safely by filling
+            # with empty string before lowercasing
+            mask = df['Region'].fillna('').str.lower() == region.lower()
             df = df[mask]
 
     daily = df.groupby('Date', as_index=False)['Sales'].sum()
