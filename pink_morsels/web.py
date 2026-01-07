@@ -1,62 +1,46 @@
-from pathlib import Path
-from dash import Dash, html, dcc, Input, Output
-from .data import load_data, daily_sales_by_region
-from .viz import make_figure
+from dash import Dash, html, dcc
+import plotly.express as px
+import pandas as pd
 
 
 def create_app():
-    # Ensure Dash knows where the project's `assets/` folder is.
-    assets_path = str(Path(__file__).resolve().parents[1] / 'assets')
-    app = Dash(__name__, assets_folder=assets_path)
+    # Load processed sales data
+    df = pd.read_csv("data.csv")
 
-    # load raw data once and reuse in callbacks
-    df_raw = load_data()
+    # Convert date column to datetime
+    df["date"] = pd.to_datetime(df["date"])
 
-    # initial aggregated data for 'all' regions
-    initial = daily_sales_by_region(df_raw, 'all')
-    fig = make_figure(initial)
+    # Sort by date
+    df = df.sort_values("date")
 
-    app.layout = html.Div(children=[
-        html.Div([
-            html.H1("Pink Morsels Sales Visualiser"),
-            html.P("Were sales higher before or after the price increase on 2021-01-15?"),
-        ], id='header'),
+    # Create line chart
+    fig = px.line(
+        df,
+        x="date",
+        y="sales",
+        title="Pink Morsel Sales Over Time",
+        labels={
+            "date": "Date",
+            "sales": "Total Sales"
+        }
+    )
 
-        html.Div([
-            dcc.RadioItems(
-                id='region-picker',
-                options=[
-                    {'label': 'All', 'value': 'all'},
-                    {'label': 'North', 'value': 'north'},
-                    {'label': 'East', 'value': 'east'},
-                    {'label': 'South', 'value': 'south'},
-                    {'label': 'West', 'value': 'west'},
-                ],
-                value='all',
-                inline=True,
-                inputStyle={'margin-right': '6px', 'margin-left': '12px'},
-                # add a stable hook class so CSS can target this component
-                className='region-radio',
-                # move per-label visual styling into the component props where possible
-                labelStyle={
-                    'background': '#eef4ff',
-                    'padding': '6px 10px',
-                    'borderRadius': '6px',
-                    'marginRight': '8px',
-                    'display': 'inline-block'
-                }
-            )
-        ], id='controls'),
+    # Create Dash app
+    app = Dash(__name__)
 
-        dcc.Graph(id='sales-graph', figure=fig)
-    ],
-        id='main-container',
-        style={'width': '90%', 'maxWidth': '1000px', 'margin': 'auto', 'fontFamily': 'Arial'})
+    # Define layout
+    app.layout = html.Div([
+        html.H1(
+            "Pink Morsel Sales Visualiser",
+            style={"textAlign": "center"}
+        ),
 
+        html.P(
+            "Sales before and after the Pink Morsel price increase on January 15, 2021.",
+            style={"textAlign": "center"}
+        ),
 
-    @app.callback(Output('sales-graph', 'figure'), Input('region-picker', 'value'))
-    def update_figure(region_value):
-        daily = daily_sales_by_region(df_raw, region_value)
-        return make_figure(daily)
+        dcc.Graph(figure=fig)
+    ])
 
     return app
